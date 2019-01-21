@@ -67,11 +67,18 @@ module.exports = function(mongoose) {
                 'paste the following link into your browser:</p><p>${URL}</p>',
             text: 'Please verify your account by clicking the following link, or by copying and pasting it into your browser: ${URL}'
         },
+        recoveryOptions: {
+            from: 'Do Not Reply <user@gmail.com>',
+            subject: 'Recupera tu contraseña',
+            html: '<p>Recover your password using<a href="${URL}">this link</a>. If you are unable to do so, copy and ' +
+                'paste the following link into your browser:</p><p>${URL}</p>',
+            text: 'Recover your password clicking the following link, or by copying and pasting it into your browser: ${URL}'
+        },
         verifySendMailCallback: function(err, info) {
             if (err) {
                 throw err;
             } else {
-                console.log(info.response);
+              console.log(info && info.response);
             }
         },
         shouldSendConfirmation: true,
@@ -326,6 +333,45 @@ module.exports = function(mongoose) {
     /**
      * Send an email to the user requesting confirmation.
      *
+     * @func sendVerificationEmail
+     * @param {string} email - the user's email address.
+     * @param {string} url - the unique url generated for the user.
+     * @param {function} callback - the callback to pass to Nodemailer's transporter
+     */
+    var sendRecoveryEmail = function(email, url, transportOptions, callback) {
+        var r = /\$\{URL\}/g;
+
+        // inject newly-created URL into the email's body and FIRE
+        // stringify --> parse is used to deep copy
+        var URL = options.verificationURL.replace(r, url)
+        var mailOptions = JSON.parse(JSON.stringify(options.recoveryOptions))
+
+        mailOptions.to = email;
+        mailOptions.subject = transportOptions.subject
+        mailOptions.from = transportOptions.from
+        mailOptions.html = transportOptions.html
+        mailOptions.text = transportOptions.text
+
+        transporter = nodemailer.createTransport(transportOptions);
+
+        return new Promise((resolve, reject) => {
+          transporter.sendMail(mailOptions, (error, data) => {
+            if (error) {
+              callback && callback(error, null)
+              reject(error)
+            }
+
+            callback && callback(null, data)
+            resolve(data)
+          });
+        })
+
+
+    };
+
+    /**
+     * Send an email to the user requesting confirmation.
+     *
      * @func sendConfirmationEmail
      * @param {string} email - the user's email address.
      * @param {function} callback - the callback to pass to Nodemailer's transporter
@@ -358,7 +404,7 @@ module.exports = function(mongoose) {
 
             // temp user is found (i.e. user accessed URL before their data expired)
             if (tempUserData) {
-                // var userData = JSON.parse(JSON.stringify(tempUserData)), 
+                // var userData = JSON.parse(JSON.stringify(tempUserData)),
                 var userData = {},
                     User = options.persistentUserModel,
                     user;
@@ -443,5 +489,6 @@ module.exports = function(mongoose) {
         resendVerificationEmail: resendVerificationEmail,
         sendConfirmationEmail: sendConfirmationEmail,
         sendVerificationEmail: sendVerificationEmail,
+        sendRecoveryEmail: sendRecoveryEmail
     };
 };
