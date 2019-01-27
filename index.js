@@ -68,7 +68,7 @@ module.exports = function(mongoose) {
             text: 'Please verify your account by clicking the following link, or by copying and pasting it into your browser: ${URL}'
         },
         recoveryOptions: {
-            from: 'Do Not Reply <user@gmail.com>',
+            from: 'Do Not Reply <no-reply@fransramirez.com>',
             subject: 'Recupera tu contraseña',
             html: '<p>Recover your password using<a href="${URL}">this link</a>. If you are unable to do so, copy and ' +
                 'paste the following link into your browser:</p><p>${URL}</p>',
@@ -338,7 +338,7 @@ module.exports = function(mongoose) {
      * @param {string} url - the unique url generated for the user.
      * @param {function} callback - the callback to pass to Nodemailer's transporter
      */
-    var sendRecoveryEmail = function(email, url, transportOptions, callback) {
+    var sendRecoveryEmail = function(email, url, callback) {
         var r = /\$\{URL\}/g;
 
         // inject newly-created URL into the email's body and FIRE
@@ -346,27 +346,33 @@ module.exports = function(mongoose) {
         var URL = options.verificationURL.replace(r, url)
         var mailOptions = JSON.parse(JSON.stringify(options.recoveryOptions))
 
-        mailOptions.to = email;
-        mailOptions.subject = transportOptions.subject
-        mailOptions.from = transportOptions.from
-        mailOptions.html = transportOptions.html
-        mailOptions.text = transportOptions.text
+        options.persistentUserModel.findOne({email}, function(err, existingPersistentUser) {
+            if (err) {
+                return callback(err, null, null);
+            }
+            // user is in data base
+            if (existingPersistentUser) {
+              mailOptions.to = email;
+              mailOptions.html = mailOptions.html.replace(r, URL);
+              mailOptions.text = mailOptions.text.replace(r, URL);
 
-        transporter = nodemailer.createTransport(transportOptions);
+              transporter = nodemailer.createTransport(options.transportOptions);
 
-        return new Promise((resolve, reject) => {
-          transporter.sendMail(mailOptions, (error, data) => {
-            if (error) {
-              callback && callback(error, null)
-              reject(error)
+              return new Promise((resolve, reject) => {
+                transporter.sendMail(mailOptions, (error, data) => {
+                  if (error) {
+                    callback && callback(error, null)
+                    reject(error)
+                  }
+
+                  callback && callback(null, data)
+                  resolve(data)
+                });
+              })
             }
 
-            callback && callback(null, data)
-            resolve(data)
-          });
-        })
-
-
+            return callback('User not registered', null);
+        });
     };
 
     /**
