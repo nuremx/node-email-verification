@@ -343,7 +343,7 @@ module.exports = function(mongoose) {
 
         // inject newly-created URL into the email's body and FIRE
         // stringify --> parse is used to deep copy
-        var URL = options.verificationURL.replace(r, url)
+        var URL = options.recoveryURL.replace(r, url)
         var mailOptions = JSON.parse(JSON.stringify(options.recoveryOptions))
 
         options.persistentUserModel.findOne({email}, function(err, existingPersistentUser) {
